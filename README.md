@@ -1,6 +1,6 @@
 # Chrono
 
-*Scientific timekeeping  in Julia*
+*Scientific timekeeping in Julia*
 
 [![Build Status](https://travis-ci.org/FugroRoames/Chrono.jl.svg?branch=master)](https://travis-ci.org/FugroRoames/Chrono.jl)
 [![Coverage Status](https://coveralls.io/repos/FugroRoames/Chrono.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/FugroRoames/Chrono.jl?branch=master)
@@ -71,12 +71,55 @@ julia> div(19days, weeks)
 julia> rem(19days, weeks)
 5//1 days
 ```
+is exactly `7 days` in a week, etc. However, floating point arithmetic is also
 As seen above, rational arithmetic will be used whenever possible, so that there
-is exactly `7 days` in a week, etc.
-
+fully supported, as well as conversion to/from `Base.Dates.Period` types.
 
 ### Clocks
 
+A clock represents a method of measuring time. In general, a clock will have
+"time = 0" at a certain instance of time - that instance is called the *epoch*.
+We will represent a times as `Duration`s from a `Clock`'s epoch.
 
+In general, it is difficult (or maybe impossible) to relate the time read by two
+clocks. However, in some instances, the relationship may be known from
+measurement or by definition. For an example of latter, the *International Atomic
+Time* (TAI) standard is defined using a world-wide system of atomic clocks,
+while a variety of *derived* time standards such as UTC and GPS time are
+*defined* relative to TAI (and possibly some epoch date or dates).
+
+Thus, the package includes support for abstract `TAIClock`s, which include as
+subtypes a variety of time standards that are related:
+
+ - `TAIDate(date)` is a TAI clock that starts at the beginning of a given `date`.
+ - `UTCDate(date)` is a clock that starts at the beginning of a given `date`, and the
+   package includes a table of UTC leap-seconds to relate UTC to other TAI-based
+   times.
+ - `GPSEpoch()` is a clock that starts on January 6, 1980 at 19 seconds behind TAI
+   time.
+ - `GPSWeek(n)` is a clock with an epoch at the beginning of the `n`th Sunday
+   after January 6, 1980 (and trails the corresponding TAI time by 19 seconds).
+   The GPS system transmits time as a combination of the GPS week and time since
+   the beginning of that Sunday.
+
+The `Duration` separating the epoch of any two TAI-derived clocks can be
+obtained by subtracting the `Clock`s. The `gps_week(date)` helper function
+returns the GPS week number corresponding to any date and the `epoch(clock)`
+function returns the `Date` of the corresponding epoch (assumed to be at the
+beginning of that day, in the corresponding time system).
 
 ### Times
+
+As mentioned above, we measure `Time` relative to a `Clock`'s epoch. Our
+definition of time is simply:
+```julia
+immutable Time{C <: Clock, D <: Duration}
+    duration::D
+    clock::C # This might be singleton, or it might contain complex data
+end
+```
+
+We can do all the obvious things to `Time`s: we can subtract two `Time`s to get
+the `Duration` that separates them, or add/subtract a `Duration` to a `Time`.
+The `Time` relative to a new clock can be created via the constructor
+`Time(old_time, new_clock)`.
