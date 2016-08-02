@@ -2,13 +2,11 @@
 
 *Scientific timekeeping  in Julia*
 
-[![Build Status](https://travis-ci.org/andyferris/Chrono.jl.svg?branch=master)](https://travis-ci.org/andyferris/Chrono.jl)
+[![Build Status](https://travis-ci.org/FugroRoames/Chrono.jl.svg?branch=master)](https://travis-ci.org/FugroRoames/Chrono.jl)
+[![Coverage Status](https://coveralls.io/repos/FugroRoames/Chrono.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/FugroRoames/Chrono.jl?branch=master)
+[![codecov.io](http://codecov.io/github/FugroRoames/Chrono.jl/coverage.svg?branch=master)](http://codecov.io/github/FugroRoames/Chrono.jl?branch=master)
 
-[![Coverage Status](https://coveralls.io/repos/andyferris/Chrono.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/andyferris/Chrono.jl?branch=master)
-
-[![codecov.io](http://codecov.io/github/andyferris/Chrono.jl/coverage.svg?branch=master)](http://codecov.io/github/andyferris/Chrono.jl?branch=master)
-
-This package provides a flexibile interface to write `Duration`s of time, and to
+This package provides a flexibile interface to write `Duration`s of time, and
 functionality to keep track of instants of `Time` relative to specified
 `Clock`s. The design is partially motivated by *C++*'s `std::chrono` template
 library.
@@ -44,3 +42,41 @@ julia> t3.duration - t4.duration
 julia> t3.clock - t4.clock
 17//1 seconds
 ```
+
+## User guide
+
+### Durations
+
+The `Duration` type represents a period of time with user-specified storage
+format `T` and units (as `PeriodInSeconds` seconds):
+```julia
+immutable Duration{PeriodInSeconds, T}
+    value::T
+end
+```
+
+Common durations including `weeks`, `days`, `hours`, `minutes`, `seconds`,
+`milliseconds`, `microseconds` and `nanoseconds` are provided. One can add,
+subtract, multiply an divide these as expected:
+```julia
+julia> 2.0weeks + 3.0days
+17.0 days
+
+julia> 2.0weeks / days
+14.0
+
+julia> div(19days, weeks)
+2
+
+julia> rem(19days, weeks)
+5//1 days
+```
+As seen above, rational arithmetic will be used whenever possible, so that there
+is exactly `7 days` in a week, etc.
+
+
+### Clocks
+
+
+
+### Times
