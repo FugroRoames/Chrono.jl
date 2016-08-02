@@ -168,51 +168,26 @@ epoch(utc_date::UTCDate) = utc_date.date
 
 Base.show(io::IO, utc_date::UTCDate) = (print(io, utc_date.date); print(io, " (UTC)"))
 
-# Offset table for UTC (using (searchsortedlast() + 9) seconds)
-# TODO use an interface that
-const utc_offsets =   [ typemin(Date),     # => 10seconds, # (searchsortedlast() should never return 0)
-                        Date(1972, 7, 1),  # => 11seconds,
-                        Date(1973, 1, 1),  # => 12seconds,
-                        Date(1974, 1, 1),  # => 13seconds,
-                        Date(1975, 1, 1),  # => 14seconds,
-                        Date(1976, 1, 1),  # => 15seconds,
-                        Date(1977, 1, 1),  # => 16seconds,
-                        Date(1978, 1, 1),  # => 17seconds,
-                        Date(1979, 1, 1),  # => 18seconds,
-                        Date(1980, 1, 1),  # => 19seconds,
-                        Date(1981, 7, 1),  # => 20seconds,
-                        Date(1982, 7, 1),  # => 21seconds,
-                        Date(1983, 7, 1),  # => 22seconds,
-                        Date(1985, 7, 1),  # => 23seconds,
-                        Date(1988, 1, 1),  # => 24seconds,
-                        Date(1990, 1, 1),  # => 25seconds,
-                        Date(1991, 1, 1),  # => 26seconds,
-                        Date(1992, 7, 1),  # => 27seconds,
-                        Date(1993, 7, 1),  # => 28seconds,
-                        Date(1994, 7, 1),  # => 29seconds,
-                        Date(1996, 1, 1),  # => 30seconds,
-                        Date(1997, 7, 1),  # => 31seconds,
-                        Date(1999, 1, 1),  # => 32seconds,
-                        Date(2006, 1, 1),  # => 33seconds,
-                        Date(2009, 1, 1),  # => 34seconds,
-                        Date(2012, 7, 1),  # => 35seconds,
-                        Date(2015, 7, 1),  # => 36seconds,
-                        Date(2017, 1, 1) ] # => 37seconds ]
+include("../gen/leap_seconds.jl")
+
+function lookup_leapsecs(date::UTCDate)
+    d = epoch(date)
+    if d > leap_secs_expiry_date
+        throw(ErrorException("Unknown number of leap seconds for date $d"))
+    end
+    (searchsortedlast(utc_offsets, d) + leap_index_offset)seconds
+end
 
 function Base.:-(c1::UTCDate, c2::TAIDate)
-    return (epoch(c1) - epoch(c2)).value * days -
-        (searchsortedlast(utc_offsets, epoch(c1)) + 9)seconds
+    return (epoch(c1) - epoch(c2)).value * days - lookup_leapsecs(c1)
 end
 
 function Base.:-(c1::TAIDate, c2::UTCDate)
-    return (epoch(c1) - epoch(c2)).value * days +
-        (searchsortedlast(utc_offsets, epoch(c2)) + 9)seconds
+    return (epoch(c1) - epoch(c2)).value * days + lookup_leapsecs(c2)
 end
 
 function Base.:-(c1::UTCDate, c2::UTCDate)
-    return (epoch(c1) - epoch(c2)).value * days -
-        (searchsortedlast(utc_offsets, epoch(c1)) -
-            searchsortedlast(utc_offsets, epoch(c2)))seconds
+    return (epoch(c1) - epoch(c2)).value * days - (lookup_leapsecs(c1) - lookup_leapsecs(c2))
 end
 
 
@@ -233,34 +208,3 @@ function Base.show(io::IO, e::OffsetEpoch)
 end
 =#
 
-#=
-# The dates used above are designed to work with
-const utc_offsets =   [ typemin(Date)      => 10seconds,
-                        Date(1972,  6, 30) => 11seconds,
-                        Date(1972, 12, 31) => 12seconds,
-                        Date(1973, 12, 31) => 13seconds,
-                        Date(1974, 12, 31) => 14seconds,
-                        Date(1975, 12, 31) => 15seconds,
-                        Date(1976, 12, 31) => 16seconds,
-                        Date(1977, 12, 31) => 17seconds,
-                        Date(1978, 12, 31) => 18seconds,
-                        Date(1979, 12, 31) => 19seconds,
-                        Date(1981,  6, 30) => 20seconds,
-                        Date(1982,  6, 30) => 21seconds,
-                        Date(1983,  6, 30) => 22seconds,
-                        Date(1985,  6, 30) => 23seconds,
-                        Date(1987, 12, 31) => 24seconds,
-                        Date(1989, 12, 31) => 25seconds,
-                        Date(1990, 12, 31) => 26seconds,
-                        Date(1992,  6, 30) => 27seconds,
-                        Date(1993,  6, 30) => 28seconds,
-                        Date(1994,  6, 30) => 29seconds,
-                        Date(1995, 12, 31) => 30seconds,
-                        Date(1997,  6, 30) => 31seconds,
-                        Date(1998, 12, 31) => 32seconds,
-                        Date(2005, 12, 31) => 33seconds,
-                        Date(2008, 12, 31) => 34seconds,
-                        Date(2012,  6, 30) => 35seconds,
-                        Date(2015,  6, 30) => 36seconds,
-                        Date(2016, 12, 31) => 37seconds ]
-=#
