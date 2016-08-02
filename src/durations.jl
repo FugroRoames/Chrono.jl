@@ -1,7 +1,21 @@
+"""
+    Duration{PeriodInSeconds}(value)
+
+Construct a `Duration` object which stores an amount of time in units
+`PeriodInSeconds` seconds. For instance, `Duration{60}(3)` represents 3 minutes
+(three intervals of 60 seconds long).
+
+The common units `weeks`, `days`, `hours`, `minutes`, `seconds`, `milliseconds`,
+`microseconds` and `nanonseconds` are exported (as well as their non-plural
+forms, `week`, etc) to make it convenient to construct any length of time,
+such as `10seconds` or `10 * second`.
+"""
 immutable Duration{PeriodInSeconds, T}
     value::T
 end
 (::Type{Duration{P}}){P,T}(v::T) = Duration{P,T}(v)
+(::Type{Duration{P}}){P}(d::Duration) = convert(Duration{P}, d)
+(::Type{Duration{P,T}}){P,T}(d::Duration) = convert(Duration{P,T}, d)
 
 @pure period{P}(::Type{Duration{P}}) = P
 
@@ -9,10 +23,39 @@ end
 
 #@inline seconds(d::Duration) = get(d) * period(typeof(d))
 
-Base.convert{P1,P2}(::Type{Duration{P1}}, d::Duration{P2}) = Duration{P1}(get(d) * P1 / P2)
+# Conversion and promotion designed to maximize chance of staying "rational" if
+# the user requests that (though Float64 is "default").
+Base.convert{P,T}(::Type{Duration{P}}, d::Duration{P,T}) = Duration{P,T}(get(d))
+Base.convert{P1,P2}(::Type{Duration{P1}}, d::Duration{P2}) = Duration{P1}((get(d) * P2) / P1)
 
-Base.promote_type{P1,P2,T1,T2}(::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}}) = Duration{P1, promote_type(T1,T2)}
-Base.promote_op{P1,P2,T1,T2,F}(::F, ::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}}) = Duration{P1, promote_op(F,T1,T2)}
+Base.convert{P,T}(::Type{Duration{P,T}}, d::Duration{P,T}) = Duration{P,T}(get(d))
+Base.convert{P,T,T2}(::Type{Duration{P,T}}, d::Duration{P,T2}) = Duration{P,T}(convert(T, get(d)))
+Base.convert{P1,P2,T}(::Type{Duration{P1,T}}, d::Duration{P2}) = Duration{P1,T}(convert(T, (get(d) * P2) / P1))
+
+@pure function Base.promote_type{P1,P2,T1,T2}(::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}})
+    # Note: this relation is assymetric if P1 == P2 but !(P1 === P2) (e.g. 1 vs 1.0)
+    # Using promote_rule() results in stack overflows in this case
+    if P1 === P2
+        Duration{P1, promote_type(T1, T2)}
+    elseif P1 < P2
+        Duration{P1, Base.promote_op(/, promote_type(promote_type(T1, T2), typeof(P2)), typeof(P1))}
+    else
+        Duration{P2, Base.promote_op(/, promote_type(promote_type(T1, T2), typeof(P1)), typeof(P2))}
+    end
+end
+
+@pure function Base.promote_op{F,P1,P2,T1,T2}(f::F, ::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}})
+    if P1 === P2
+        Duration{P1, Base.promote_op(f, T1, T2)}
+    elseif P1 < P2
+        Duration{P1, Base.promote_op(/, Base.promote_op(f, promote_type(T1, T2), typeof(P2)), typeof(P1))}
+    else
+        Duration{P2, Base.promote_op(/, Base.promote_op(f, promote_type(T1, T2), typeof(P1)), typeof(P2))}
+    end
+end
+
+#Base.promote_op{P,T1,T2,F}(::F, ::Type{Duration{P,T1}}, ::Type{Duration{P,T2}}) = Duration{P, Base.promote_op(F,T1,T2)}
+#Base.promote_op{P1,P2,T1,T2,F}(::F, ::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}}) = Duration{P1, promote_type(Base.promote_op(F,T1,T2),Base.promote_op(/, typeof(P1), typeof(P2)))}
 
 function Base.show{P}(io::IO, d::Duration{P})
     print(io, d.value)
@@ -23,18 +66,20 @@ end
 
 
 # Mathematical operations
-@inline Base.:-{P,T}(d::Duration{P,T}) = Duration{P,T}(-get(d))
+@inline Base.:-{P,T}(d::Duration{P,T}) = Duration{P}(-get(d))
 
 @inline Base.:+(d1::Duration, d2::Duration) = ((d1p, d2p) = promote(d1, d2); d1p + d2p)
 @inline Base.:+{P,T}(d1::Duration{P,T}, d2::Duration{P,T}) = Duration{P,T}(get(d1) + get(d2))
 
-@inline Base.:-(d1::Duration, d2::Duration) = ((d1p, d2p) = promote(d1, d2); d1p + d2p)
-@inline Base.:-{P,T}(d1::Duration{P,T}, d2::Duration{P,T}) = Duration{P,T}(get(d1) + get(d2))
+@inline Base.:-(d1::Duration, d2::Duration) = ((d1p, d2p) = promote(d1, d2); d1p - d2p)
+@inline Base.:-{P,T}(d1::Duration{P,T}, d2::Duration{P,T}) = Duration{P,T}(get(d1) - get(d2))
 
 @inline Base.:/{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = (get(d1) * P1) / (get(d2) * P2)
 @inline Base.://{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = (get(d1) * P1) // (get(d2) * P2)
-@inline Base.div{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = div((get(d1) * P1), (get(d2) * P2))
-@inline Base.rem{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = rem((get(d1) * P1), (get(d2) * P2))
+@inline Base.div{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = div((get(d1) * P1), (get(d2) * P2)) # Euclidean division, pairs with rem()
+@inline Base.rem{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = Duration{P1}(rem((get(d1) * P1), (get(d2) * P2)) / P1) # Negative iff d1.value is negative
+@inline Base.fld{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = fld((get(d1) * P1), (get(d2) * P2)) # Flooring division, pairs with mod()
+@inline Base.mod{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = Duration{P1}(mod((get(d1) * P1), (get(d2) * P2)) / P1) # Always positive
 
 # Scaling
 @inline Base.:*{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(dp * s))
@@ -42,16 +87,13 @@ end
 
 @inline Base.:/{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(dp / s))
 @inline Base.://{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(dp // s))
-@inline Base.div{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(div(dp, s)))
-@inline Base.rem{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(rem(dp, s)))
-
 
 # Interface with Base.Dates. Autoconversion will result in Floats, not Rationals
-Base.convert(::Type{Duration}, d::Base.Dates.Week) = Duration{604800,Int64}(d.value)
-Base.convert(::Type{Duration}, d::Base.Dates.Day) = Duration{86400,Int64}(d.value)
-Base.convert(::Type{Duration}, d::Base.Dates.Hour) = Duration{3600,Int64}(d.value)
-Base.convert(::Type{Duration}, d::Base.Dates.Minute) = Duration{60,Int64}(d.value)
-Base.convert(::Type{Duration}, d::Base.Dates.Second) = Duration{1,Int64}(d.value)
+Base.convert(::Type{Duration}, d::Base.Dates.Week) = Duration{604800//1,Int64}(d.value)
+Base.convert(::Type{Duration}, d::Base.Dates.Day) = Duration{86400//1,Int64}(d.value)
+Base.convert(::Type{Duration}, d::Base.Dates.Hour) = Duration{3600//1,Int64}(d.value)
+Base.convert(::Type{Duration}, d::Base.Dates.Minute) = Duration{60//1,Int64}(d.value)
+Base.convert(::Type{Duration}, d::Base.Dates.Second) = Duration{1//1,Int64}(d.value)
 Base.convert(::Type{Duration}, d::Base.Dates.Millisecond) = Duration{1//1000,Int64}(d.value)
 
 Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Week) = Duration{P}(d.value * P * 604800)
@@ -75,56 +117,52 @@ Base.convert{P}(::Type{Base.Dates.Minute}, d::Duration{P}) = Base.Dates.Minute(d
 Base.convert{P}(::Type{Base.Dates.Second}, d::Duration{P}) = Base.Dates.Second(Int(d.value * P))
 Base.convert{P}(::Type{Base.Dates.Millisecond}, d::Duration{P}) = Base.Dates.Millisecond(Int(d.value * P) * 1000)
 
-Base.promote_type{P,T, DatesPeriod <: Base.Dates.Period}(::Type{Duration{P,T}}, ::Type{DatesPeriod}) = Duration{P, T}
-Base.promote_type{P,T, DatesPeriod <: Base.Dates.Millisecond}(::Type{Duration{P,T}}, ::Type{DatesPeriod}) = Duration{P, promote_op(/, T, Int)}
+Base.promote_rule{P,T, DatesPeriod <: Base.Dates.Period}(::Type{Duration{P,T}}, ::Type{DatesPeriod}) = Duration{P, T}
+Base.promote_rule{P,T, DatesPeriod <: Base.Dates.Millisecond}(::Type{Duration{P,T}}, ::Type{DatesPeriod}) = Duration{P, promote_op(/, T, Int)}
 
 
 # Export some convenience timescales as efficient singletons, e.g. week or weeks
-const week = Duration{604800, Unit}(unit)
-const day = Duration{86400, Unit}(unit)
-const hour = Duration{3600, Unit}(unit)
-const minute = Duration{60, Unit}(unit)
-const second = Duration{1, Unit}(unit)
+const week = Duration{604800//1, Unit}(unit)
+const day = Duration{86400//1, Unit}(unit)
+const hour = Duration{3600//1, Unit}(unit)
+const minute = Duration{60//1, Unit}(unit)
+const second = Duration{1//1, Unit}(unit)
 const millisecond = Duration{1//1000, Unit}(unit)
 const microsecond = Duration{1//1_000_000, Unit}(unit)
 const nanosecond = Duration{1//1_000_000_000, Unit}(unit)
 
-export week, day, hour, minute, second, millisecond, microsecond, nanosecond
-
-const weeks = Duration{604800, Unit}(unit)
-const days = Duration{86400, Unit}(unit)
-const hours = Duration{3600, Unit}(unit)
-const minutes = Duration{60, Unit}(unit)
-const seconds = Duration{1, Unit}(unit)
+const weeks = Duration{604800//1, Unit}(unit)
+const days = Duration{86400//1, Unit}(unit)
+const hours = Duration{3600//1, Unit}(unit)
+const minutes = Duration{60//1, Unit}(unit)
+const seconds = Duration{1//1, Unit}(unit)
 const milliseconds = Duration{1//1000, Unit}(unit)
 const microseconds = Duration{1//1_000_000, Unit}(unit)
 const nanoseconds = Duration{1//1_000_000_000, Unit}(unit)
 
-export weeks, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds
-
 # Some nice outputs
 
-function Base.show(io::IO, d::Duration{604800})
+function Base.show(io::IO, d::Duration{604800//1})
     print(io, d.value)
     (isa(d.value, Integer) && d.value == 1) ? print(io, " week") : print(io, " weeks")
 end
 
-function Base.show(io::IO, d::Duration{86400})
+function Base.show(io::IO, d::Duration{86400//1})
     print(io, d.value)
     (isa(d.value, Integer) && d.value == 1) ? print(io, " day") : print(io, " days")
 end
 
-function Base.show(io::IO, d::Duration{3600})
+function Base.show(io::IO, d::Duration{3600//1})
     print(io, d.value)
     (isa(d.value, Integer) && d.value == 1) ? print(io, " hour") : print(io, " hours")
 end
 
-function Base.show(io::IO, d::Duration{60})
+function Base.show(io::IO, d::Duration{60//1})
     print(io, d.value)
     (isa(d.value, Integer) && d.value == 1) ? print(io, " minute") : print(io, " minutes")
 end
 
-function Base.show(io::IO, d::Duration{d = 1})
+function Base.show(io::IO, d::Duration{1//1})
     print(io, d.value)
     (isa(d.value, Integer) && d.value == 1) ? print(io, " second") : print(io, " seconds")
 end

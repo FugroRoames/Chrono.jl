@@ -3,6 +3,9 @@ immutable Unit <: Integer; end
 const unit = Unit()
 Base.show(io::IO, ::Unit) = print(io, "one")
 
+@inline Base.:-(::Unit) = -1
+@inline Base.:+(::Unit, ::Unit) = 2
+
 @inline Base.:*(::Unit, ::Unit) = unit
 @inline Base.:*(::Unit, x::Number) = x
 @inline Base.:*(x::Number, ::Unit) = x
@@ -15,6 +18,7 @@ Base.show(io::IO, ::Unit) = print(io, "one")
 
 Base.promote_rule{I <: Number}(::Type{Unit}, ::Type{I}) = I
 Base.convert{T}(::Type{T}, ::Unit) = one(T)
+Base.convert{T<:Integer}(::Type{Rational{T}}, ::Unit) = one(Rational{T})
 Base.one(::Type{Unit}) = Unit()
 
 
@@ -41,10 +45,13 @@ Base.show(io::IO, ::ZeroUnit) = print(io, "zero")
 
 Base.promote_rule{I <: Number}(::Type{ZeroUnit}, ::Type{I}) = I
 Base.convert{T}(::Type{T}, ::ZeroUnit) = zero(T)
+Base.convert{T<:Integer}(::Type{Rational{T}}, ::ZeroUnit) = zero(Rational{T})
 Base.zero(::Type{ZeroUnit}) = ZeroUnit()
 
 
 # Mixed types...
+@inline Base.:-(::Unit, ::Unit) = zerounit
+
 @inline Base.:*(::ZeroUnit, ::Unit) = zerounit
 @inline Base.:*(::Unit, x::ZeroUnit) = zerounit
 @inline Base.:/(::ZeroUnit, x::Unit) = zerounit
