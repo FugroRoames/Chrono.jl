@@ -88,11 +88,11 @@ function Base.:-(c1::GPSEpoch, c2::GPSEpoch)
 end
 
 function Base.:-(c1::GPSEpoch, c2::TAIDate)
-    return (epoch(c1) - epoch(c2)).value * days - gpsoffset
+    return (epoch(c1) - epoch(c2)).value * days - gps_offset
 end
 
 function Base.:-(c1::TAIDate, c2::GPSEpoch)
-    return (epoch(c1) - epoch(c2)).value * days + gpsoffset
+    return (epoch(c1) - epoch(c2)).value * days + gps_offset
 end
 
 Base.@pure epoch(::GPSEpoch) = Date(1980, 1, 6)
@@ -207,4 +207,3 @@ function Base.show(io::IO, e::OffsetEpoch)
     print(io, e.epoch)
 end
 =#
-
