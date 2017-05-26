@@ -54,7 +54,9 @@ for line in lines
     end
 end
 
-@assert expected_sha == SHA.sha1(join(rawdata))
+actual_sha = bytes2hex(SHA.sha1(join(rawdata)))
+@show expected_sha actual_sha
+@assert expected_sha == actual_sha
 @assert all(diff(leap_secs) .== 1)
 
 
@@ -85,4 +87,4 @@ open(genname, "w") do file
     )
 end
 
-print(readall(genname))
+print(readstring(genname))

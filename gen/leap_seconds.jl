@@ -33,4 +33,4 @@ const utc_offsets = [
     Date(2017, 1, 1)
 ]
 
-const leap_secs_expiry_date = Date(2017, 6, 28)
+const leap_secs_expiry_date = Date(2017, 12, 28)
