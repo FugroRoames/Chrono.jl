@@ -21,9 +21,9 @@ function Base.show(io::IO, t::Time)
 end
 
 # Mathematical operations
-@inline Base.:+(d::Duration, t::Time) = Time(d + t.duration, t1.clock)
-@inline Base.:+(t::Time, d::Duration) = Time(t.duration + d, t1.clock)
-@inline Base.:-(t::Time, d::Duration) = Time(t.duration - d, t1.clock)
+@inline Base.:+(d::Duration, t::Time) = Time(d + t.duration, t.clock)
+@inline Base.:+(t::Time, d::Duration) = Time(t.duration + d, t.clock)
+@inline Base.:-(t::Time, d::Duration) = Time(t.duration - d, t.clock)
 
 @inline Base.:-{C1<:TAIClock, C2<:TAIClock}(t1::Time{C1}, t2::Time{C2}) = t1.duration - t2.duration + (t1.clock - t2.clock)
 
