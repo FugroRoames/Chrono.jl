@@ -50,7 +50,7 @@ julia> t3.clock - t4.clock
 The `Duration` type represents a period of time with user-specified storage
 format `T` and units (as `PeriodInSeconds` seconds):
 ```julia
-immutable Duration{PeriodInSeconds, T}
+struct Duration{PeriodInSeconds, T}
     value::T
 end
 ```
@@ -113,7 +113,7 @@ beginning of that day, in the corresponding time system).
 As mentioned above, we measure `Time` relative to a `Clock`'s epoch. Our
 definition of time is simply:
 ```julia
-immutable Time{C <: Clock, D <: Duration}
+struct Time{C <: Clock, D <: Duration}
     duration::D
     clock::C # This might be singleton, or it might contain complex data
 end

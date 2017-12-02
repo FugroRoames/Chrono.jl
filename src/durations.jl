@@ -10,14 +10,14 @@ The common units `weeks`, `days`, `hours`, `minutes`, `seconds`, `milliseconds`,
 forms, `week`, etc) to make it convenient to construct any length of time,
 such as `10seconds` or `10 * second`.
 """
-immutable Duration{PeriodInSeconds, T}
+struct Duration{PeriodInSeconds, T}
     value::T
 end
-(::Type{Duration{P}}){P,T}(v::T) = Duration{P,T}(v)
-(::Type{Duration{P}}){P}(d::Duration) = convert(Duration{P}, d)
-(::Type{Duration{P,T}}){P,T}(d::Duration) = convert(Duration{P,T}, d)
+Duration{P}(v::T) where {P,T} = Duration{P,T}(v)
+Duration{P}(d::Duration) where {P} = convert(Duration{P}, d)
+Duration{P,T}(d::Duration) where {P,T} = convert(Duration{P,T}, d)
 
-@pure period{P}(::Type{Duration{P}}) = P
+@pure period(::Type{Duration{P}}) where {P} = P
 
 @inline Base.get(d::Duration) = d.value
 
@@ -25,14 +25,14 @@ end
 
 # Conversion and promotion designed to maximize chance of staying "rational" if
 # the user requests that (though Float64 is "default").
-Base.convert{P,T}(::Type{Duration{P}}, d::Duration{P,T}) = Duration{P,T}(get(d))
-Base.convert{P1,P2}(::Type{Duration{P1}}, d::Duration{P2}) = Duration{P1}((get(d) * P2) / P1)
+Base.convert(::Type{Duration{P}}, d::Duration{P,T}) where {P,T} = Duration{P,T}(get(d))
+Base.convert(::Type{Duration{P1}}, d::Duration{P2}) where {P1,P2} = Duration{P1}((get(d) * P2) / P1)
 
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Duration{P,T}) = Duration{P,T}(get(d))
-Base.convert{P,T,T2}(::Type{Duration{P,T}}, d::Duration{P,T2}) = Duration{P,T}(convert(T, get(d)))
-Base.convert{P1,P2,T}(::Type{Duration{P1,T}}, d::Duration{P2}) = Duration{P1,T}(convert(T, (get(d) * P2) / P1))
+Base.convert(::Type{Duration{P,T}}, d::Duration{P,T}) where {P,T} = Duration{P,T}(get(d))
+Base.convert(::Type{Duration{P,T}}, d::Duration{P,T2}) where {P,T,T2} = Duration{P,T}(convert(T, get(d)))
+Base.convert(::Type{Duration{P1,T}}, d::Duration{P2}) where {P1,P2,T} = Duration{P1,T}(convert(T, (get(d) * P2) / P1))
 
-@pure function Base.promote_type{P1,P2,T1,T2}(::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}})
+@pure function Base.promote_type(::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}}) where {P1,P2,T1,T2}
     # Note: this relation is assymetric if P1 == P2 but !(P1 === P2) (e.g. 1 vs 1.0)
     # Using promote_rule() results in stack overflows in this case
     if P1 === P2
@@ -44,7 +44,7 @@ Base.convert{P1,P2,T}(::Type{Duration{P1,T}}, d::Duration{P2}) = Duration{P1,T}(
     end
 end
 
-@pure function Base.promote_op{F,P1,P2,T1,T2}(f::F, ::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}})
+@pure function Base.promote_op(f::F, ::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}}) where {F,P1,P2,T1,T2}
     if P1 === P2
         Duration{P1, Base.promote_op(f, T1, T2)}
     elseif P1 < P2
@@ -57,7 +57,7 @@ end
 #Base.promote_op{P,T1,T2,F}(::F, ::Type{Duration{P,T1}}, ::Type{Duration{P,T2}}) = Duration{P, Base.promote_op(F,T1,T2)}
 #Base.promote_op{P1,P2,T1,T2,F}(::F, ::Type{Duration{P1,T1}}, ::Type{Duration{P2,T2}}) = Duration{P1, promote_type(Base.promote_op(F,T1,T2),Base.promote_op(/, typeof(P1), typeof(P2)))}
 
-function Base.show{P}(io::IO, d::Duration{P})
+function Base.show(io::IO, d::Duration{P}) where P
     print(io, d.value)
     (isa(d.value, Integer) && d.value == 1) ? print(io, " period of ") : print(io, " periods of ")
     print(io, P)
@@ -66,27 +66,27 @@ end
 
 
 # Mathematical operations
-@inline Base.:-{P,T}(d::Duration{P,T}) = Duration{P}(-get(d))
+@inline Base.:-(d::Duration{P,T}) where {P,T} = Duration{P}(-get(d))
 
 @inline Base.:+(d1::Duration, d2::Duration) = ((d1p, d2p) = promote(d1, d2); d1p + d2p)
-@inline Base.:+{P,T}(d1::Duration{P,T}, d2::Duration{P,T}) = Duration{P,T}(get(d1) + get(d2))
+@inline Base.:+(d1::Duration{P,T}, d2::Duration{P,T}) where {P,T} = Duration{P,T}(get(d1) + get(d2))
 
 @inline Base.:-(d1::Duration, d2::Duration) = ((d1p, d2p) = promote(d1, d2); d1p - d2p)
-@inline Base.:-{P,T}(d1::Duration{P,T}, d2::Duration{P,T}) = Duration{P,T}(get(d1) - get(d2))
+@inline Base.:-(d1::Duration{P,T}, d2::Duration{P,T}) where {P,T} = Duration{P,T}(get(d1) - get(d2))
 
-@inline Base.:/{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = (get(d1) * P1) / (get(d2) * P2)
-@inline Base.://{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = (get(d1) * P1) // (get(d2) * P2)
-@inline Base.div{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = div((get(d1) * P1), (get(d2) * P2)) # Euclidean division, pairs with rem()
-@inline Base.rem{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = Duration{P1}(rem((get(d1) * P1), (get(d2) * P2)) / P1) # Negative iff d1.value is negative
-@inline Base.fld{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = fld((get(d1) * P1), (get(d2) * P2)) # Flooring division, pairs with mod()
-@inline Base.mod{P1,P2}(d1::Duration{P1}, d2::Duration{P2}) = Duration{P1}(mod((get(d1) * P1), (get(d2) * P2)) / P1) # Always positive
+@inline Base.:/(d1::Duration{P1}, d2::Duration{P2}) where {P1,P2} = (get(d1) * P1) / (get(d2) * P2)
+@inline Base.://(d1::Duration{P1}, d2::Duration{P2}) where {P1,P2} = (get(d1) * P1) // (get(d2) * P2)
+@inline Base.div(d1::Duration{P1}, d2::Duration{P2}) where {P1,P2} = div((get(d1) * P1), (get(d2) * P2)) # Euclidean division, pairs with rem()
+@inline Base.rem(d1::Duration{P1}, d2::Duration{P2}) where {P1,P2} = Duration{P1}(rem((get(d1) * P1), (get(d2) * P2)) / P1) # Negative iff d1.value is negative
+@inline Base.fld(d1::Duration{P1}, d2::Duration{P2}) where {P1,P2} = fld((get(d1) * P1), (get(d2) * P2)) # Flooring division, pairs with mod()
+@inline Base.mod(d1::Duration{P1}, d2::Duration{P2}) where {P1,P2} = Duration{P1}(mod((get(d1) * P1), (get(d2) * P2)) / P1) # Always positive
 
 # Scaling
-@inline Base.:*{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(dp * s))
-@inline Base.:*{P}(s::Number, d::Duration{P}) = ((dp, sp) = promote(get(d), s); Duration{P}(s * dp))
+@inline Base.:*(d::Duration{P}, s::Number) where {P} = ((dp, sp) = promote(get(d), s); Duration{P}(dp * s))
+@inline Base.:*(s::Number, d::Duration{P}) where {P} = ((dp, sp) = promote(get(d), s); Duration{P}(s * dp))
 
-@inline Base.:/{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(dp / s))
-@inline Base.://{P}(d::Duration{P}, s::Number) = ((dp, sp) = promote(get(d), s); Duration{P}(dp // s))
+@inline Base.:/(d::Duration{P}, s::Number) where {P} = ((dp, sp) = promote(get(d), s); Duration{P}(dp / s))
+@inline Base.://(d::Duration{P}, s::Number) where {P} = ((dp, sp) = promote(get(d), s); Duration{P}(dp // s))
 
 # Interface with Base.Dates. Autoconversion will result in Floats, not Rationals
 Base.convert(::Type{Duration}, d::Base.Dates.Week) = Duration{604800//1,Int64}(d.value)
@@ -96,29 +96,29 @@ Base.convert(::Type{Duration}, d::Base.Dates.Minute) = Duration{60//1,Int64}(d.v
 Base.convert(::Type{Duration}, d::Base.Dates.Second) = Duration{1//1,Int64}(d.value)
 Base.convert(::Type{Duration}, d::Base.Dates.Millisecond) = Duration{1//1000,Int64}(d.value)
 
-Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Week) = Duration{P}(d.value * P * 604800)
-Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Day) = Duration{P}(d.value * P * 86400)
-Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Hour) = Duration{P}(d.value * P * 3600)
-Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Minute) = Duration{P}(d.value * P * 60)
-Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Second) = Duration{P}(d.value * P)
-Base.convert{P}(::Type{Duration{P}}, d::Base.Dates.Millisecond) = Duration{P}(d.value * P / 1000)
+Base.convert(::Type{Duration{P}}, d::Base.Dates.Week) where {P} = Duration{P}(d.value * P * 604800)
+Base.convert(::Type{Duration{P}}, d::Base.Dates.Day) where {P} = Duration{P}(d.value * P * 86400)
+Base.convert(::Type{Duration{P}}, d::Base.Dates.Hour) where {P} = Duration{P}(d.value * P * 3600)
+Base.convert(::Type{Duration{P}}, d::Base.Dates.Minute) where {P} = Duration{P}(d.value * P * 60)
+Base.convert(::Type{Duration{P}}, d::Base.Dates.Second) where {P} = Duration{P}(d.value * P)
+Base.convert(::Type{Duration{P}}, d::Base.Dates.Millisecond) where {P} = Duration{P}(d.value * P / 1000)
 
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Base.Dates.Week) = Duration{P,T}(d.value * P * 604800)
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Base.Dates.Day) = Duration{P,T}(d.value * P * 86400)
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Base.Dates.Hour) = Duration{P,T}(d.value * P * 3600)
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Base.Dates.Minute) = Duration{P,T}(d.value * P * 60)
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Base.Dates.Second) = Duration{P,T}(d.value * P)
-Base.convert{P,T}(::Type{Duration{P,T}}, d::Base.Dates.Millisecond) = Duration{P,T}(d.value * P / 1000)
+Base.convert(::Type{Duration{P,T}}, d::Base.Dates.Week) where {P,T} = Duration{P,T}(d.value * P * 604800)
+Base.convert(::Type{Duration{P,T}}, d::Base.Dates.Day) where {P,T} = Duration{P,T}(d.value * P * 86400)
+Base.convert(::Type{Duration{P,T}}, d::Base.Dates.Hour) where {P,T} = Duration{P,T}(d.value * P * 3600)
+Base.convert(::Type{Duration{P,T}}, d::Base.Dates.Minute) where {P,T} = Duration{P,T}(d.value * P * 60)
+Base.convert(::Type{Duration{P,T}}, d::Base.Dates.Second) where {P,T} = Duration{P,T}(d.value * P)
+Base.convert(::Type{Duration{P,T}}, d::Base.Dates.Millisecond) where {P,T} = Duration{P,T}(d.value * P / 1000)
 
-Base.convert{P}(::Type{Base.Dates.Week}, d::Duration{P}) = Base.Dates.Week(div(Int64(d.value * P), 604800))
-Base.convert{P}(::Type{Base.Dates.Day}, d::Duration{P}) = Base.Dates.Day(div(Int64(d.value * P), 86400))
-Base.convert{P}(::Type{Base.Dates.Hour}, d::Duration{P}) = Base.Dates.Hour(div(Int64(d.value * P), 3600))
-Base.convert{P}(::Type{Base.Dates.Minute}, d::Duration{P}) = Base.Dates.Minute(div(Int64(d.value * P), 60))
-Base.convert{P}(::Type{Base.Dates.Second}, d::Duration{P}) = Base.Dates.Second(Int(d.value * P))
-Base.convert{P}(::Type{Base.Dates.Millisecond}, d::Duration{P}) = Base.Dates.Millisecond(Int(d.value * P) * 1000)
+Base.convert(::Type{Base.Dates.Week}, d::Duration{P}) where {P} = Base.Dates.Week(div(Int64(d.value * P), 604800))
+Base.convert(::Type{Base.Dates.Day}, d::Duration{P}) where {P} = Base.Dates.Day(div(Int64(d.value * P), 86400))
+Base.convert(::Type{Base.Dates.Hour}, d::Duration{P}) where {P} = Base.Dates.Hour(div(Int64(d.value * P), 3600))
+Base.convert(::Type{Base.Dates.Minute}, d::Duration{P}) where {P} = Base.Dates.Minute(div(Int64(d.value * P), 60))
+Base.convert(::Type{Base.Dates.Second}, d::Duration{P}) where {P} = Base.Dates.Second(Int(d.value * P))
+Base.convert(::Type{Base.Dates.Millisecond}, d::Duration{P}) where {P} = Base.Dates.Millisecond(Int(d.value * P) * 1000)
 
-Base.promote_rule{P,T, DatesPeriod <: Base.Dates.Period}(::Type{Duration{P,T}}, ::Type{DatesPeriod}) = Duration{P, T}
-Base.promote_rule{P,T, DatesPeriod <: Base.Dates.Millisecond}(::Type{Duration{P,T}}, ::Type{DatesPeriod}) = Duration{P, promote_op(/, T, Int)}
+Base.promote_rule(::Type{Duration{P,T}}, ::Type{DatesPeriod}) where {P,T, DatesPeriod <: Base.Dates.Period} = Duration{P, T}
+Base.promote_rule(::Type{Duration{P,T}}, ::Type{DatesPeriod}) where {P,T, DatesPeriod <: Base.Dates.Millisecond} = Duration{P, promote_op(/, T, Int)}
 
 
 # Export some convenience timescales as efficient singletons, e.g. week or weeks

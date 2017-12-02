@@ -1,5 +1,5 @@
 # A convenient singleton type, mainly for the timescales below
-immutable Unit <: Integer; end
+struct Unit <: Integer; end
 const unit = Unit()
 Base.show(io::IO, ::Unit) = print(io, "one")
 
@@ -16,14 +16,14 @@ Base.show(io::IO, ::Unit) = print(io, "one")
 @inline Base.://(::Unit, x::Number) = 1 // x
 @inline Base.://(x::Number, ::Unit) = x
 
-Base.promote_rule{I <: Number}(::Type{Unit}, ::Type{I}) = I
-Base.convert{T}(::Type{T}, ::Unit) = one(T)
-Base.convert{T<:Integer}(::Type{Rational{T}}, ::Unit) = one(Rational{T})
+Base.promote_rule(::Type{Unit}, ::Type{I}) where {I <: Number} = I
+Base.convert(::Type{T}, ::Unit) where {T} = one(T)
+Base.convert(::Type{Rational{T}}, ::Unit) where {T<:Integer} = one(Rational{T})
 Base.one(::Type{Unit}) = Unit()
 
 
 # Another convenient singleton type, good for subtracting epochs
-immutable ZeroUnit <: Integer; end
+struct ZeroUnit <: Integer; end
 const zerounit = ZeroUnit()
 Base.show(io::IO, ::ZeroUnit) = print(io, "zero")
 
@@ -43,9 +43,9 @@ Base.show(io::IO, ::ZeroUnit) = print(io, "zero")
 @inline Base.rem(::ZeroUnit, x::Number) = zerounit
 
 
-Base.promote_rule{I <: Number}(::Type{ZeroUnit}, ::Type{I}) = I
-Base.convert{T}(::Type{T}, ::ZeroUnit) = zero(T)
-Base.convert{T<:Integer}(::Type{Rational{T}}, ::ZeroUnit) = zero(Rational{T})
+Base.promote_rule(::Type{ZeroUnit}, ::Type{I}) where {I <: Number} = I
+Base.convert(::Type{T}, ::ZeroUnit) where {T} = zero(T)
+Base.convert(::Type{Rational{T}}, ::ZeroUnit) where {T<:Integer} = zero(Rational{T})
 Base.zero(::Type{ZeroUnit}) = ZeroUnit()
 
 

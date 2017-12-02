@@ -13,7 +13,7 @@ two clocks are different, the result should be in the units of the first clock
 (i.e. `c1` in `c1 - c2`). This duration will be used automatically when
 converting `Time` from one clock to another.
 """
-abstract Clock
+abstract type Clock end
 
 
 ########################
@@ -34,7 +34,7 @@ clock (as a `Base.Dates.Date`) and by defining the subtraction operation between
 the clock and `TAIDate`. This will allow times to be converted between your
 custom clock and any other TAI-derived clock.
 """
-abstract TAIClock <: Clock
+abstract type TAIClock <: Clock end
 
 """
     TAIDate <: TAIClock
@@ -44,7 +44,7 @@ abstract TAIClock <: Clock
 An International Atomic Time (TAI) clock with epoch (time = 0) set at the
 beginning of the given `date`.
 """
-immutable TAIDate <: TAIClock
+struct TAIDate <: TAIClock
     date::Date
 end
 TAIDate(year, month, day) = TAIDate(Date(year, month, day))
@@ -62,7 +62,7 @@ function Base.:-(c1::TAIDate, c2::TAIDate)
 end
 
 # By default, the TAI-derived times will go through TAIDate as an intermediatary
-function Base.:-{C1 <: TAIClock, C2 <: TAIClock}(c1::C1, c2::C2)
+function Base.:-(c1::C1, c2::C2) where {C1 <: TAIClock, C2 <: TAIClock}
     return (c1 - TAIDate(epoch(c1))) - (c2 - TAIDate(epoch(c1)))
 end
 
@@ -77,7 +77,7 @@ end
 The GPS time standard is defined relative to the start of 6th January, 1980.
 Equivalent to `GPSWeek(0)`.
 """
-immutable GPSEpoch <: TAIClock; end
+struct GPSEpoch <: TAIClock; end
 
 #Base.:-(::GPSEpoch, ::GPSEpoch) = Duration{1, ZeroUnit}(zerounit)
 
@@ -105,7 +105,7 @@ The GPS epoch began on Sunday 6th January, 1980, and the GPS broadcast signal
 resets to zero every Sunday at midnight. For instance, week 1908 corresponds to
 the week beginning 2016-07-31 (a Sunday).
 """
-immutable GPSWeek <: TAIClock
+struct GPSWeek <: TAIClock
     week::Int
 end
 
@@ -158,7 +158,7 @@ end
 A clock which starts (defines it epoch) at the beggining of the specificied
 Coordinated Universal Time (UTC) day.
 """
-immutable UTCDate <: TAIClock
+struct UTCDate <: TAIClock
     date::Date
 end
 
